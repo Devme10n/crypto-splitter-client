@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { generateRSAKeyPair, encryptStringRsa } from "../utils/RSA_encryption";
 
+// TODO: 파일명 변경해야함.-> RsaKeyManagementPage
+// TODO: Import Private Key Pem File을 이동시키고, 전역으로 사용할 수 있도록 수정해야하는가?
 const RsaStringEncryptPage = () => {
   const [inputString, setInputString] = useState("");
   const [encryptedString, setEncryptedString] = useState("");
@@ -43,6 +45,7 @@ const RsaStringEncryptPage = () => {
     }
   };
 
+  // TODO: 공개키, 개인키에 대한 유효성 검사 없음, jsrsasign?
   /**
    * 공개키 PEM 파일을 읽어, 상태를 업데이트
    * @param files 
@@ -79,20 +82,20 @@ const RsaStringEncryptPage = () => {
     }
   };
 
-  /**
-   * 입력 필드의 값이 변경될 때마다 상태 업데이트
-   * @param e 
-   */
-  const onKeyInputChange = async (e) => {
-    setInputString(e.target.value);
-  };
+  // /**
+  //  * 입력 필드의 값이 변경될 때마다 상태 업데이트
+  //  * @param e 
+  //  */
+  // const onKeyInputChange = async (e) => {
+  //   setInputString(e.target.value);
+  // };
 
   return (
     <>
       <div className="flex flex-col items-center">
-        <h1 className="pt-[20px] pb-[20px]">RSA String Encrypt</h1>
+        <h1 className="pt-[20px] pb-[20px]">(적절한 이름으로 바꿀 것) RSA String Encrypt</h1>
         <div className="pt-[10px] text-left w-full flex-1">
-          <div>
+          {/* <div>
             <label
               htmlFor="small-input"
               className="whitespace-normal break-all font-bold block mb-2 text-sm font-medium text-gray-900 dark:text-white"
@@ -106,7 +109,7 @@ const RsaStringEncryptPage = () => {
               className="block w-full p-2 text-gray-900 border border-gray-300 rounded-lg bg-gray-50 sm:text-xs focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
             />
            
-          </div>
+          </div> */}
           <div className="flex mt-[10px]">
             <button
               type="button"
@@ -175,7 +178,7 @@ const RsaStringEncryptPage = () => {
                   </div>
                 )}
               </div>
-              {(rsaKeyPair.publicKey && inputString ) && (
+              {/* {(rsaKeyPair.publicKey && inputString ) && (
                 <>
                   <div className="flex mt-[10px]">
                     <button
@@ -193,7 +196,7 @@ const RsaStringEncryptPage = () => {
                   )}
                   
                 </>
-              )}
+              )} */}
             </>
           )}
         </div>
