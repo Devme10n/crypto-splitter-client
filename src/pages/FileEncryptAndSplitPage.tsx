@@ -13,8 +13,6 @@ import axios from "axios";
 
 import { generateRSAKeyPair, encryptStringRsa } from "../utils/RSA_encryption";
 
-// TODO: 전역으로 공개키와 개인키를 설정하던가, 매번 input하던가 해야함
-
 function AesFileEncryptorPage() {
   const [inputFile, setInputFile] = useState(null);
   const [algorithm, setAlgorithm] = useState("AES256");
@@ -122,19 +120,72 @@ function AesFileEncryptorPage() {
   }, [passphrase]);
 
   /**
+   * 공개키 PEM 파일을 읽어, 상태를 업데이트
+   * @param files 
+   * @returns 
+   */
+  const changeFilePemPublic = (files: FileList) => {
+    const file = files[0];
+    if (!file) {
+      return;
+    }
+    if (file.size > 1024 * 1024 * 50) {
+      return alert("文件太大");
+    }
+    const reader = new FileReader();
+    reader.onload = async function () {
+      const publicKey = reader.result as string;
+      setRsaKeyPair({
+        ...rsaKeyPair,
+        publicKey: publicKey,
+      });
+    };
+    reader.readAsText(file);
+  };
+
+  /**
+   * 개인키 PEM 파일을 읽어, 상태를 업데이트
+   * @param files 
+   * @returns 
+   */
+    const changeFilePemPrivate = (files: FileList) => {
+      const file = files[0];
+      if (!file) {
+        return;
+      }
+      if (file.size > 1024 * 1024 * 50) {
+        return alert("文件太大");
+      }
+      const reader = new FileReader();
+      reader.onload = async function () {
+        const privateKey = reader.result as string;
+        setRsaKeyPair({
+          ...rsaKeyPair,
+          privateKey: privateKey,
+        });
+      };
+      reader.readAsText(file);
+    };
+
+
+  /**
    * 입력된 문자열을 RSA 암호화
    */
-  const encryptKeyRsa = async () => {
+  const encryptKeyRsa = async (passphrase: string, publicKey: string) => {
     try{
-      const encryptedKey = await encryptStringRsa(passphrase, rsaKeyPair.publicKey);
-      setEncryptedString(encryptedKey);
-    }catch(err){
-      alert('Encryption failed.')
+      const encryptedPassphrase = await encryptStringRsa(passphrase, publicKey);
+      console.log(`encryptedPassphrase from encryptKeyRsa function: ${encryptedPassphrase}`)
+      setEncryptedString(encryptedPassphrase);
+      return encryptedPassphrase; // 암호화된 패스프레이즈 반환
+    }catch(error){
+      alert(`String Encryption failed. Error: ${error.message}`);
+      console.log(`passpharse: ${passphrase}, publicKey: ${publicKey}`)
+      console.log(`String Encryption failed. Error: ${error.message}`);
     }
   };
 
   /**
-   * 입력 파일을 AES-256-CBC로 암호화 후 파일로 저장
+   * 입력 파일을 AES-256-CBC로 암호화 후 서버로 전송
    */
   const encryptAes256 = () => {
     if (inputFile && (passphrase || is256BitHex(aesKey))) {
@@ -146,13 +197,16 @@ function AesFileEncryptorPage() {
             aesKey,
             aesIv
           );
+          // passpharse를 RSA로 암호화
+          const encryptedPassphrase = await encryptKeyRsa(passphrase, rsaKeyPair.publicKey);
           // // 파일로 저장
           // saveOrOpenBlob(new Blob([encrypted]), inputFile.name || "encrypted");
           // 암호화된 데이터를 서버에 전송
-          sendEncryptedData(new Blob([encrypted]), inputFile.name || "encrypted");
+          console.log(`encryptedPassphrase from encryptAes256 func before sendEncryptedData: ${encryptedPassphrase}`); // encryptedPassphrase 확인
+          sendEncryptedData(new Blob([encrypted]), inputFile.name || "encrypted", encryptedPassphrase);
         }catch(err){
           console.log(err);
-          alert('Encryption failed')
+          alert('AES-256-CBC Encryption failed')
         }
         
       };
@@ -164,13 +218,17 @@ function AesFileEncryptorPage() {
    * 암호화된 파일과 암호화된 passphrase를 서버로 전송
    * @param encryptedBlob 
    */
-  const sendEncryptedData = async (encryptedBlob: Blob, fileName: string) => {
+  const sendEncryptedData = async (encryptedBlob: Blob, fileName: string, encryptedPassphrase: string) => {
     try {
       const encryptedFile = new File([encryptedBlob], fileName);
 
+      console.log(`encryptedPassphrase: ${encryptedPassphrase}`); // encryptedPassphrase 확인
+      console.log(`encryptedFile: ${encryptedFile}`); // encryptedFile 확인
+
+
       const formData = new FormData();
-      formData.append('encryptedPassphrase', encryptedString);
-      formData.append('encryptedFile', encryptedFile, encryptedFile.name);
+      formData.append('encryptedPassphrase', encryptedPassphrase);
+      formData.append('encryptedFile', encryptedFile);
 
       const response = await axios.post(import.meta.env.VITE_REACT_APP_SERVER_URL + '/upload', formData, {
         headers: {
@@ -188,50 +246,50 @@ function AesFileEncryptorPage() {
     }
   };
 
-  /**
-   * 입력 파일을 AES-256-CBC로 복호화 후 파일로 저장
-   */
-  const decryptAes256 = () => {
-    if (inputFile && (passphrase || is256BitHex(aesKey))) {
-      const reader = new FileReader();
-      reader.onload = async function () {
-        try{
-          const decrypted = await decryptAes(
-            reader.result as ArrayBuffer,
-            aesKey
-          );
-          console.log(decrypted);
-          // 파일로 저장
-          saveOrOpenBlob(new Blob([decrypted]), inputFile.name || decrypted);
-        }catch(err){
-          alert('Decryption failed')
-        }
+  // /**
+  //  * 입력 파일을 AES-256-CBC로 복호화 후 파일로 저장
+  //  */
+  // const decryptAes256 = () => {
+  //   if (inputFile && (passphrase || is256BitHex(aesKey))) {
+  //     const reader = new FileReader();
+  //     reader.onload = async function () {
+  //       try{
+  //         const decrypted = await decryptAes(
+  //           reader.result as ArrayBuffer,
+  //           aesKey
+  //         );
+  //         console.log(decrypted);
+  //         // 파일로 저장
+  //         saveOrOpenBlob(new Blob([decrypted]), inputFile.name || decrypted);
+  //       }catch(err){
+  //         alert('Decryption failed')
+  //       }
        
-      };
-      reader.readAsArrayBuffer(inputFile);
-    }
-  };
+  //     };
+  //     reader.readAsArrayBuffer(inputFile);
+  //   }
+  // };
 
-  /**
-   * Blob 데이터를 파일로 저장
-   * @param blob 
-   * @param fileName 
-   */
-  const saveOrOpenBlob = (blob: Blob, fileName: string) => {
-    const tempEl = document.createElement("a");
-    document.body.appendChild(tempEl);
-    const url = window.URL.createObjectURL(blob);
-    tempEl.href = url;
-    tempEl.download = fileName;
-    tempEl.click();
-    window.URL.revokeObjectURL(url);
-  };
+  // /**
+  //  * Blob 데이터를 파일로 저장
+  //  * @param blob 
+  //  * @param fileName 
+  //  */
+  // const saveOrOpenBlob = (blob: Blob, fileName: string) => {
+  //   const tempEl = document.createElement("a");
+  //   document.body.appendChild(tempEl);
+  //   const url = window.URL.createObjectURL(blob);
+  //   tempEl.href = url;
+  //   tempEl.download = fileName;
+  //   tempEl.click();
+  //   window.URL.revokeObjectURL(url);
+  // };
 
   return (
     <>
       <div className="min-w-[1200px]">
         <div  className="h-[100vh] relative">
-          <h1 className="pt-[20px] pb-[20px]">AES256 File Encrypt</h1>
+          <h1 className="pt-[20px] pb-[20px]">File Encrypt & Split</h1>
           <form
             id="file-input-form"
             className="pt-[20px] flex items-center justify-center w-full"
@@ -319,7 +377,7 @@ function AesFileEncryptorPage() {
               {algorithm === "AES256" && inputFile && (
                 <>
                   <div className="pt-[10px] text-left">
-                    {((!passphrase && !aesKey) || passphrase) && (
+                    {/* {((!passphrase && !aesKey) || passphrase) && (
                       <div>
                         <label
                           htmlFor="small-input"
@@ -334,7 +392,7 @@ function AesFileEncryptorPage() {
                           className="block w-full p-2 text-gray-900 border border-gray-300 rounded-lg bg-gray-50 sm:text-xs focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                         />
                       </div>
-                    )}
+                    )} */}
 
                     {(passphrase || aesKey) && (
                       <>
@@ -381,14 +439,41 @@ function AesFileEncryptorPage() {
                           >
                             Encrypt
                           </button>
-                          <button
+
+                          <label
+                            htmlFor="dropzone-file-pem-public"
+                            className="cursor-pointer text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 font-medium rounded-lg text-sm px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700"
+                          >
+                            Import Public Key Pem File
+                            <input
+                              id="dropzone-file-pem-public"
+                              type="file"
+                              className="hidden"
+                              onChange={(e) => changeFilePemPublic(e.target.files)}
+                            />
+                          </label>
+
+                          <label
+                            htmlFor="dropzone-file-pem-private"
+                            className="cursor-pointer text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 font-medium rounded-lg text-sm px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700"
+                          >
+                            Import Private Key Pem File
+                            <input
+                              id="dropzone-file-pem-private"
+                              type="file"
+                              className="hidden"
+                              onChange={(e) => changeFilePemPrivate(e.target.files)}
+                            />
+                          </label>
+                        </div>                         
+                          
+                          {/* <button
                             type="button"
                             onClick={decryptAes256}
                             className="text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 font-medium rounded-lg text-sm px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700"
                           >
                             Decrypt
-                          </button>
-                        </div>
+                          </button> */}
                         <div>
                           <span className="font-bold">Openssl Equivalent:</span>
                         </div>

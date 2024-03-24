@@ -2,7 +2,6 @@ import { useState } from "react";
 import { generateRSAKeyPair, encryptStringRsa } from "../utils/RSA_encryption";
 
 // TODO: 파일명 변경해야함.-> RsaKeyManagementPage
-// TODO: Import Private Key Pem File을 이동시키고, 전역으로 사용할 수 있도록 수정해야하는가?
 const RsaStringEncryptPage = () => {
   const [inputString, setInputString] = useState("");
   const [encryptedString, setEncryptedString] = useState("");
@@ -71,16 +70,40 @@ const RsaStringEncryptPage = () => {
   };
 
   /**
-   * 입력된 문자열을 RSA 암호화
+   * 개인키 PEM 파일을 읽어, 상태를 업데이트
+   * @param files 
+   * @returns 
    */
-  const encryptKeyRsa = async () => {
-    try{
-      const encryptedKey = await encryptStringRsa(inputString, rsaKeyPair.publicKey);
-      setEncryptedString(encryptedKey);
-    }catch(err){
-      alert('Encryption failed.')
-    }
-  };
+    const changeFilePemPrivate = (files: FileList) => {
+      const file = files[0];
+      if (!file) {
+        return;
+      }
+      if (file.size > 1024 * 1024 * 50) {
+        return alert("文件太大");
+      }
+      const reader = new FileReader();
+      reader.onload = async function () {
+        const privateKey = reader.result as string;
+        setRsaKeyPair({
+          ...rsaKeyPair,
+          privateKey: privateKey,
+        });
+      };
+      reader.readAsText(file);
+    };
+
+  // /**
+  //  * 입력된 문자열을 RSA 암호화
+  //  */
+  // const encryptKeyRsa = async () => {
+  //   try{
+  //     const encryptedKey = await encryptStringRsa(inputString, rsaKeyPair.publicKey);
+  //     setEncryptedString(encryptedKey);
+  //   }catch(err){
+  //     alert('Encryption failed.')
+  //   }
+  // };
 
   // /**
   //  * 입력 필드의 값이 변경될 때마다 상태 업데이트
@@ -93,7 +116,7 @@ const RsaStringEncryptPage = () => {
   return (
     <>
       <div className="flex flex-col items-center">
-        <h1 className="pt-[20px] pb-[20px]">(적절한 이름으로 바꿀 것) RSA String Encrypt</h1>
+        <h1 className="pt-[20px] pb-[20px]">Rsa Key Management Page</h1>
         <div className="pt-[10px] text-left w-full flex-1">
           {/* <div>
             <label
@@ -139,6 +162,22 @@ const RsaStringEncryptPage = () => {
                 />
               </label>
             </div>
+
+            <div className="flex items-center justify-center">
+              <label
+                htmlFor="dropzone-file-pem-private"
+                className="cursor-pointer text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 font-medium rounded-lg text-sm px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700"
+              >
+                Import Private Key Pem File
+                <input
+                  id="dropzone-file-pem-private"
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => changeFilePemPrivate(e.target.files)}
+                />
+              </label>
+            </div>
+
           </div>
           {rsaKeyPair && (rsaKeyPair.privateKey || rsaKeyPair.publicKey) && (
             <>

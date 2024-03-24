@@ -1,7 +1,7 @@
 import {  useSearchParams } from "react-router-dom";
-import  AesFileEncryptPage from "../pages/AesFileEncryptPage";
-import RsaKeyEncryptPage from "./RsaStringEncryptPage";
-import RsaKeyDecryptPage from "./RsaStringDecryptPage";
+import  AesFileEncryptPage from "./FileEncryptAndSplitPage";
+import RsaKeyEncryptPage from "./RsaKeyManagementPage";
+import RsaKeyDecryptPage from "./FileMergeAndDecryptPage";
 const HomePage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
