@@ -9,6 +9,11 @@ import {
 } from "../utils/AES_encryption";
 import { is256BitHex } from "../utils/Rgx_test";
 
+import axios from "axios";
+
+import { generateRSAKeyPair, encryptStringRsa } from "../utils/RSA_encryption";
+
+// TODO: 전역으로 공개키와 개인키를 설정하던가, 매번 input하던가 해야함
 
 function AesFileEncryptorPage() {
   const [inputFile, setInputFile] = useState(null);
@@ -17,7 +22,11 @@ function AesFileEncryptorPage() {
   const [aesKey, setAesKey] = useState("");
   const [aesIv, setAesIv] = useState("");
 
-  const [rsaKeyPair, setRsaKeyPair] = useState({});
+  const [encryptedString, setEncryptedString] = useState("");
+  const [rsaKeyPair, setRsaKeyPair] = useState({
+    publicKey: "",
+    privateKey: "",
+  });
 
   /**
    * 파일 변경 이벤트 핸들러, AES 암호화 대상 파일 선택
@@ -113,6 +122,18 @@ function AesFileEncryptorPage() {
   }, [passphrase]);
 
   /**
+   * 입력된 문자열을 RSA 암호화
+   */
+  const encryptKeyRsa = async () => {
+    try{
+      const encryptedKey = await encryptStringRsa(passphrase, rsaKeyPair.publicKey);
+      setEncryptedString(encryptedKey);
+    }catch(err){
+      alert('Encryption failed.')
+    }
+  };
+
+  /**
    * 입력 파일을 AES-256-CBC로 암호화 후 파일로 저장
    */
   const encryptAes256 = () => {
@@ -125,8 +146,10 @@ function AesFileEncryptorPage() {
             aesKey,
             aesIv
           );
-          // 파일로 저장
-          saveOrOpenBlob(new Blob([encrypted]), inputFile.name || "encrypted");
+          // // 파일로 저장
+          // saveOrOpenBlob(new Blob([encrypted]), inputFile.name || "encrypted");
+          // 암호화된 데이터를 서버에 전송
+          sendEncryptedData(new Blob([encrypted]), inputFile.name || "encrypted");
         }catch(err){
           console.log(err);
           alert('Encryption failed')
@@ -136,6 +159,35 @@ function AesFileEncryptorPage() {
       reader.readAsArrayBuffer(inputFile);
     }
   };
+
+  /**
+   * 암호화된 파일과 암호화된 passphrase를 서버로 전송
+   * @param encryptedBlob 
+   */
+  const sendEncryptedData = async (encryptedBlob: Blob, fileName: string) => {
+    try {
+      const encryptedFile = new File([encryptedBlob], fileName);
+
+      const formData = new FormData();
+      formData.append('encryptedPassphrase', encryptedString);
+      formData.append('encryptedFile', encryptedFile, encryptedFile.name);
+
+      const response = await axios.post(import.meta.env.VITE_REACT_APP_SERVER_URL + '/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      if (response.status === 200) {
+        alert('File and passphrase successfully uploaded.');
+      } else {
+        alert(`File upload failed with status code: ${response.status}`);
+      }
+    } catch (err) {
+      alert(`File upload failed with error: ${err.message}`);
+    }
+  };
+
   /**
    * 입력 파일을 AES-256-CBC로 복호화 후 파일로 저장
    */
@@ -165,7 +217,7 @@ function AesFileEncryptorPage() {
    * @param blob 
    * @param fileName 
    */
-  const saveOrOpenBlob = (blob, fileName) => {
+  const saveOrOpenBlob = (blob: Blob, fileName: string) => {
     const tempEl = document.createElement("a");
     document.body.appendChild(tempEl);
     const url = window.URL.createObjectURL(blob);
@@ -355,7 +407,7 @@ function AesFileEncryptorPage() {
                   </div>
                 </>
               )}
-
+              {/* dell */}
               {algorithm === "RSA" && inputFile && (
                 <RsaKeyEncrypt/>
               )}
