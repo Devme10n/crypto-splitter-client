@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { generateRSAKeyPair, encryptStringRsa, decryptStringRsa } from "../utils/RSA_encryption";
 import { isBase64 } from "../utils/Rgx_test";
+import JSEncrypt from 'jsencrypt';
 
 import {
   encryptAes,
@@ -9,8 +10,6 @@ import {
   decryptAes,
   generateRandomString
 } from "../utils/AES_encryption";
-
-import axios from 'axios';
 
 import { is256BitHex } from "../utils/Rgx_test";
 
@@ -34,65 +33,133 @@ const RsaStringDecryptPage = () => {
     setFileName(event.target.value);
   };
   
+  // TODO: merge & decrypt 최종 함수
   /**
-   * 서버에 입력한 파일명을 POST 요쳥하여, 암호화된 파일과 암호화된 passphrase를 받아옴
+   * 서버에 입력한 파일명을 POST 요쳥하여, 암호화된 파일과 암호화된 passphrase를 받아옴, passphrase를 개인키로 복호화, passphrase로 AES 키 생성, 암호화된 파일을 복호화, 복호화된 파일을 저장
    */
-  const fetchEncryptedData = async () => {
-    try {
-      const response = await axios.post(`${import.meta.env.VITE_APP_API_URL}/fetch`, {
-        fileName
-      });
+  // const fetchAndDecryptData = async () => {
+  //   try {
+  //     console.log("전송하는 파일이름: ", fileName)
+  //     const response = await axios.post(`${import.meta.env.VITE_REACT_APP_SERVER_URL}/file`, {
+  //       fileName
+  //     });
   
-      if (response.status === 200) {
-        const { encryptedFile, encryptedPassphrase } = response.data;
-        setEncryptedString(encryptedPassphrase);
-        // RSA로 encryptedPassphrase 복호화
-        const decryptedString = await decryptKeyRsa(encryptedString, rsaKeyPair.privateKey);
+  //     if (response.status === 200) {
+  //       console.log("\nBE 이상 무\n")
+  //       console.log(response.data);
+  //       const { encryptedFile, encryptedPassphrase } = response.data;
+  //       setEncryptedString(encryptedPassphrase);
+  //       // RSA로 encryptedPassphrase 복호화
+  //       const decryptedString = await decryptKeyRsa(encryptedString, rsaKeyPair.privateKey);
 
-        // 복호화된 passphrase로부터 AES 키 생성
-        if (!decryptedString) {
-          throw new Error('decryptedString is undefined');
-        }
+  //       // 복호화된 passphrase로부터 AES 키 생성
+  //       if (!decryptedString) {
+  //         throw new Error('decryptedString is undefined');
+  //       }
         
-        const keyHex = await getKeyFromPassphrase(decryptedString);
-        setAesKey(keyHex);
+  //       const keyHex = await getKeyFromPassphrase(decryptedString);
+  //       setAesKey(keyHex);
 
-        // AES-256-CBC로 encryptedFile 복호화
-        const decryptedFile = new Blob([new Uint8Array(encryptedFile)]);
-        decryptAes256(decryptedFile);
+  //       // AES-256-CBC로 encryptedFile 복호화
+  //       const decryptedFile = new Blob([new Uint8Array(encryptedFile)]);
+  //       decryptAes256(decryptedFile);
 
-        // TODO: decryptedFile 처리
-      } else {
-        console.error(`Server responded with non-OK status for file: ${fileName}`);
-        alert(`Failed to fetch encrypted data for file: ${fileName}`);
+  //       // TODO: decryptedFile 처리
+  //     } else {
+  //       console.error(`Server responded with non-OK status for file: ${fileName}`);
+  //       alert(`Failed to fetch encrypted data for file: ${fileName}`);
+  //     }
+  //   } catch (error) {
+  //     console.error(`Error occurred while fetching encrypted data for file: ${fileName}`, error);
+  //     alert(`Error occurred while fetching encrypted data for file: ${fileName}`);
+  //   }
+  // };
+  const fetchAndDecryptData = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_REACT_APP_SERVER_URL}/file`, {
+          method: 'POST',
+          body: JSON.stringify({ fileName }),
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const formData = await response.formData();
+        const fileBlob = formData.get('file') as Blob;
+        const encryptedPassphraseFile = formData.get('encryptedPassphrase') as File;
+        let encryptedPassphrase = '';
+        
+        const reader = new FileReader();
+        reader.onload = async function(event) {
+          encryptedPassphrase = event.target.result as string;
+        
+          // RSA로 encryptedPassphrase 복호화
+          if (encryptedPassphrase) {
+            // encryptedPassphrase가 유효하지 않은 경우에 대한 처리 추가
+            if (!encryptedPassphrase.trim()) {
+              throw new Error('encryptedPassphrase is undefined or empty');
+            }
+  
+            let decryptedString;
+            try {
+              // RSA로 encryptedPassphrase 복호화
+              decryptedString = await decryptKeyRsa(encryptedPassphrase, rsaKeyPair.privateKey);
+            } catch (error) {
+              console.error('Error occurred while decrypting the passphrase', error);
+              throw error;
+            }
+            // 복호화된 passphrase로부터 AES 키 생성
+            if (!decryptedString) {
+              throw new Error('decryptedString is undefined');
+            }
+            
+            // const keyHex = await getKeyFromPassphrase(decryptedString);
+            // setAesKey(keyHex);
+            // console.log('keyHex', aesKey)
+        
+            // AES-256-CBC로 encryptedFile 복호화
+            console.log(fileBlob)
+            decryptAes256(fileBlob, decryptedString);
+          } else {
+            console.error('encryptedPassphrase is undefined');
+          }
+        };
+        reader.readAsText(encryptedPassphraseFile);
+      } catch (error) {
+        console.error(`Error occurred while fetching encrypted data for file: ${fileName}`, error.message);
+        alert(`Error occurred while fetching encrypted data for file: ${fileName}`);
       }
-    } catch (error) {
-      console.error(`Error occurred while fetching encrypted data for file: ${fileName}`, error);
-      alert(`Error occurred while fetching encrypted data for file: ${fileName}`);
-    }
-  };
+    };
 
   /**
    * 입력 파일을 AES-256-CBC로 복호화 후 파일로 저장
    */
-  const decryptAes256 = (decryptedFile: Blob) => {
+  const decryptAes256 = (decryptedFile: Blob, passPharse: string) => {
+    // console.log('aes-256 함수 실행은 됨')
+    // console.log('decryptedFile: ', decryptedFile)
+    // console.log('passPharse: ', passPharse)
     if (decryptedFile && (decryptedString || is256BitHex(aesKey))) {
       const reader = new FileReader();
       reader.onload = async function () {
         try{
-          const decrypted = await decryptAes(
-            reader.result as ArrayBuffer,
-            aesKey
-          );
-          console.log(decrypted);
+          const arrayBuffer = reader.result as ArrayBuffer;
+          const decrypted = await decryptAes(arrayBuffer, passPharse);
+          console.log("decrypted: ", decrypted);
           // 파일로 저장
           saveOrOpenBlob(new Blob([decrypted]), decryptedFile.name || decrypted);
+          // console.log('저장까지 잘 되네?')
         }catch(err){
-          alert('Decryption failed')
+          alert('decryptAes256 func Decryption failed')
         }
        
       };
       reader.readAsArrayBuffer(decryptedFile);
+    } else {
+      console.error('decryptedFile or aesKey is undefined');
     }
   };
 
@@ -143,14 +210,22 @@ const RsaStringDecryptPage = () => {
     if (!encryptedString) {
       throw new Error('Invalid argument: encryptedString must not be undefined');
     }
-
-    try{
-      const decryptedKey = await decryptStringRsa(encryptedString, privateKey);
-    
-      setDecryptedString(decryptedKey);
-      return decryptedString;
-    }catch(err){
-      alert('Decryption failed.')
+  
+    try {
+      const decryptor = new JSEncrypt();
+      decryptor.setPrivateKey(privateKey);
+      const decryptedKey = decryptor.decrypt(encryptedString);
+  
+      if (decryptedKey === null) {
+        throw new Error('Decryption failed');
+      }
+  
+      if (decryptedKey !== false) {
+        setDecryptedString(decryptedKey);
+      }      
+      return decryptedKey;
+    } catch (err) {
+      alert('decryptKeyRsa func Decryption failed.');
     }
   };
 
@@ -180,10 +255,10 @@ const RsaStringDecryptPage = () => {
               id="small-input"
               className="block w-full p-2 text-gray-900 border border-gray-300 rounded-lg bg-gray-50 sm:text-xs focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
             />
-            {/* TODO: 파일명에 대한 유효성 검사가 필요한가? */}
+            {/* TODO: 파일명에 대한 유효성 검사가 필요한가?
             {encryptedString && !isBase64(encryptedString) && (
               <div className="text-red-500">Key must be valid Base64 string</div>
-            )}
+            )} */}
           </div>
 
           {/* <div>
@@ -236,7 +311,7 @@ const RsaStringDecryptPage = () => {
 
             {<button
               type="button"
-              onClick={fetchEncryptedData}
+              onClick={fetchAndDecryptData}
               className="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 mr-2 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800"
             >
               Send File Name to Server
@@ -280,7 +355,7 @@ const RsaStringDecryptPage = () => {
                   </div>
                 )}
               </div>
-              {(rsaKeyPair.privateKey && encryptedString && isBase64(encryptedString)) && (
+              {/* {(rsaKeyPair.privateKey && encryptedString && isBase64(encryptedString)) && (
                 <>
                   <div className="flex mt-[10px]">
                     <button
@@ -298,7 +373,7 @@ const RsaStringDecryptPage = () => {
                   )}
                   
                 </>
-              )}
+              )} */}
             </>
           )}
         </div>

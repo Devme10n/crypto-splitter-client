@@ -10,13 +10,15 @@ const uint8ArrayfromHexString = (hexString: string) =>Uint8Array.from(hexString.
  * @param b64str 
  * @returns 
  */
-function _base64StringToArrayBuffer(b64str) {
-  const byteStr = atob(b64str)
-  const bytes = new Uint8Array(byteStr.length)
-  for (let i = 0; i < byteStr.length; i++) {
-    bytes[i] = byteStr.charCodeAt(i)
+// Base64로 인코딩된 문자열을 디코딩하여 ArrayBuffer로 변환하는 함수
+function _base64StringToArrayBuffer(base64: string) {
+  const binaryString = window.atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
   }
-  return bytes.buffer
+  return bytes.buffer;
 }
 
 /**
@@ -145,7 +147,6 @@ export const generateRSAKeyPair = async () => {
  * @returns ArrayBuffer
  */
 export const encryptRsa = async (fileArrayBuffer: ArrayBuffer, pemString: string) => {
-  
   const keyArrayBuffer = convertPemToBinary(pemString);
   // import public key
   const secretKey = await crypto.subtle.importKey('spki', keyArrayBuffer, encryptAlgorithm, true, ['encrypt']);
@@ -167,19 +168,22 @@ export const encryptRsa = async (fileArrayBuffer: ArrayBuffer, pemString: string
  * @returns ArrayBuffer
  */
 export const decryptRsa = async (fileArrayBuffer: ArrayBuffer, pemString: string) => {
-  
-  
+  console.log("비밀키: ", pemString)
   const keyArrayBuffer = convertPemToBinary(pemString);
-
- 
   const secretKey = await crypto.subtle.importKey('pkcs8', keyArrayBuffer, encryptAlgorithm, true, ['decrypt']);
+  console.log('secretKey', secretKey)
 
-  const decryptedBuffer = await crypto.subtle.decrypt({
-    name: 'RSA-OAEP',
-
-  }, secretKey, fileArrayBuffer);
-
-  return decryptedBuffer;
+  try {
+    console.log('fileArrayBuffer: ', fileArrayBuffer)
+    const decryptedBuffer = await crypto.subtle.decrypt({
+      name: 'RSA-OAEP',
+    }, secretKey, fileArrayBuffer);
+    console.log('decryptedBuffer', decryptedBuffer)
+    return decryptedBuffer;
+  } catch (error) {
+    console.error('Decryption error:', error);
+    throw error;
+  }
 }
 
 /**
@@ -203,8 +207,7 @@ export const encryptStringRsa = async (str: string, pemString: string) => {
 export const decryptStringRsa = async (str: string, pemString: string) => {
   const encodedPlaintext = _base64StringToArrayBuffer(str);
   const decrypted = await decryptRsa(encodedPlaintext, pemString);
-  const uint8Array = new Uint8Array(decrypted);
   const textDecoder = new TextDecoder();
-  const decodedString = textDecoder.decode(uint8Array);
+  const decodedString = textDecoder.decode(new Uint8Array(decrypted));
   return decodedString;
 };

@@ -62,6 +62,9 @@ export function generateRandomString(byteLength: number) {
  * @returns 
  */
 export const getKeyFromPassphrase = async (passphrase: string) => {
+
+  console.log('getKeyFromPassphrase func passphrase:', passphrase);  // 로그 추가
+
   // 랜덤한 salt를 생성
   const salt = "saltForFile";
   const key = await _digestMessage(passphrase + salt);
@@ -91,6 +94,7 @@ export const getKeyFromPassphrase = async (passphrase: string) => {
  */
 export const getIvFromPassphrase = async () => {
   const ivHex = generateRandomString(16);
+  console.log('생성된 IV:', ivHex);  // 로그 추가
   return ivHex;
 }
 
@@ -102,6 +106,9 @@ export const getIvFromPassphrase = async () => {
  * @returns 
  */
 export const encryptAes = async (fileArrayBuffer: ArrayBuffer, keyHex: string, ivHex: string) => {
+
+  console.log('ivHex:', ivHex);  // 로그 추가
+  console.log('keyHex:', keyHex);  // 로그 추가
 
   // decode the Hex-encoded key and IV
   const ivArrayBuffer = _arrayBufferFromHexString(ivHex);
@@ -130,6 +137,11 @@ export const encryptAes = async (fileArrayBuffer: ArrayBuffer, keyHex: string, i
   return resultUint8Array.buffer;
 }
 
+function bufferToHex(buffer: ArrayBuffer): string {
+  const byteArray = new Uint8Array(buffer);
+  return Array.from(byteArray).map(byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
 /**
  * AES 복호화를 수행하는 함수
  * @param fileArrayBuffer 
@@ -138,34 +150,106 @@ export const encryptAes = async (fileArrayBuffer: ArrayBuffer, keyHex: string, i
  * @returns 
  */
 // openssl enc -aes-256-cbc -nosalt -d -in test_car_encrypted_web.jpg -out test_car_enc_web_dec_openssl.jpg -K <key in Hex> -iv <iv in Hex>
+// export const decryptAes = async (fileArrayBuffer: ArrayBuffer, passphrase: string) => {
+//   // IV의 길이
+//   const ivLength = 16;
+
+//   // Hex 인코딩된 키와 IV를 디코드
+//   const ivArrayBuffer = fileArrayBuffer.slice(0, ivLength);
+//   const ciphertextArrayBuffer = fileArrayBuffer.slice(ivLength);
+
+//   let keyHex;
+//   try {
+//     // 키 생성
+//     keyHex = await getKeyFromPassphrase(passphrase);
+//   } catch (err) {
+//     console.error('키 생성 중 오류:', err);
+//     throw err;
+//   }
+
+//   const keyArrayBuffer = _arrayBufferFromHexString(keyHex);
+
+//   let secretKey;
+//   try {
+//     // 암호화를 위한 비밀 키 준비
+//     secretKey = await crypto.subtle.importKey('raw', keyArrayBuffer, {
+//       name: 'AES-CBC',
+//       length: 256
+//     }, true, ['encrypt', 'decrypt']);
+//   } catch (err) {
+//     console.error('키 가져오기 중 오류:', err);
+//     throw err;
+//   }
+
+//   let decryptedBuffer;
+//   try {
+//     // 비밀 키로 암호문을 복호화
+//     decryptedBuffer = await crypto.subtle.decrypt({
+//         name: 'AES-CBC',
+//         iv: ivArrayBuffer
+//     }, secretKey, ciphertextArrayBuffer);
+//   } catch (err) {
+//     console.error('복호화 중 오류:', err);
+//     throw err;
+//   }
+
+//   // 복호화된 데이터를 ArrayBuffer로 반환
+//   return decryptedBuffer;
+// }
+
 export const decryptAes = async (fileArrayBuffer: ArrayBuffer, passphrase: string) => {
-  // iv의 길이
+  // IV의 길이
   const ivLength = 16;
 
-  // decode the Hex-encoded key and IV
+  // Hex 인코딩된 키와 IV를 디코드
   const ivArrayBuffer = fileArrayBuffer.slice(0, ivLength);
   const ciphertextArrayBuffer = fileArrayBuffer.slice(ivLength);
+  console.log('decryptAes func passphrase:', passphrase);  // 로그 추가
+  console.log('IV:', bufferToHex(ivArrayBuffer));  // 로그 추가
+  // console.log('암호화된 데이터:', bufferToHex(ciphertextArrayBuffer));  // 로그 추가
 
-  // 키 생성
-  const keyHex = await getKeyFromPassphrase(passphrase);
+  let keyHex;
+  try {
+    // 키 생성
+    keyHex = await getKeyFromPassphrase(passphrase);
+    console.log('생성된 키:', keyHex);  // 로그 추가
+  } catch (err) {
+    console.error('키 생성 중 오류:', err);
+    throw err;
+  }
+
   const keyArrayBuffer = _arrayBufferFromHexString(keyHex);
+  console.log('디코딩된 키:', keyArrayBuffer);  // 로그 추가
 
-  // prepare the secret key for encryption
-  const secretKey = await crypto.subtle.importKey('raw', keyArrayBuffer, {
-    name: 'AES-CBC',
-    length: 256
-}, true, ['encrypt', 'decrypt']);
-
-  // decrypt the ciphertext with the secret key
-  const decryptedBuffer = await crypto.subtle.decrypt({
+  let secretKey;
+  try {
+    // 암호화를 위한 비밀 키 준비
+    secretKey = await crypto.subtle.importKey('raw', keyArrayBuffer, {
       name: 'AES-CBC',
-      iv: ivArrayBuffer
-  }, secretKey, ciphertextArrayBuffer);
+      length: 256
+    }, true, ['encrypt', 'decrypt']);
+    console.log('비밀 키:', secretKey);  // 로그 추가
+  } catch (err) {
+    console.error('키 가져오기 중 오류:', err);
+    throw err;
+  }
 
-  // return the decrypted data as an ArrayBuffer
+  let decryptedBuffer;
+  try {
+    // 비밀 키로 암호문을 복호화
+    decryptedBuffer = await crypto.subtle.decrypt({
+        name: 'AES-CBC',
+        iv: ivArrayBuffer
+    }, secretKey, ciphertextArrayBuffer);
+    console.log('복호화된 버퍼:', decryptedBuffer);  // 로그 추가
+  } catch (err) {
+    console.error('복호화 중 오류:', err);
+    throw err;
+  }
+
+  // 복호화된 데이터를 ArrayBuffer로 반환
   return decryptedBuffer;
 }
-
 
 
 

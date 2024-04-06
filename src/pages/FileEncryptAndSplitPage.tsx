@@ -10,6 +10,8 @@ import {
 import { is256BitHex } from "../utils/Rgx_test";
 
 import axios from "axios";
+import JSEncrypt from 'jsencrypt';
+
 
 import { generateRSAKeyPair, encryptStringRsa } from "../utils/RSA_encryption";
 
@@ -109,7 +111,7 @@ function AesFileEncryptorPage() {
   
   useEffect(() => {
     const getAesIv = async () => {
-      if (passphrase) {
+      if (inputFile) {
         const ivHex = await getIvFromPassphrase();
         setAesIv(ivHex);
       } else {
@@ -172,14 +174,17 @@ function AesFileEncryptorPage() {
    * 입력된 문자열을 RSA 암호화
    */
   const encryptKeyRsa = async (passphrase: string, publicKey: string) => {
-    try{
-      const encryptedPassphrase = await encryptStringRsa(passphrase, publicKey);
-      console.log(`encryptedPassphrase from encryptKeyRsa function: ${encryptedPassphrase}`)
+    try {
+      const encryptor = new JSEncrypt();
+      encryptor.setPublicKey(publicKey);
+      const encryptedPassphrase = encryptor.encrypt(passphrase);
+  
+      console.log(`encryptedPassphrase from encryptKeyRsa function: ${encryptedPassphrase}`);
       setEncryptedString(encryptedPassphrase);
       return encryptedPassphrase; // 암호화된 패스프레이즈 반환
-    }catch(error){
+    } catch (error) {
       alert(`String Encryption failed. Error: ${error.message}`);
-      console.log(`passpharse: ${passphrase}, publicKey: ${publicKey}`)
+      console.log(`passpharse: ${passphrase}, publicKey: ${publicKey}`);
       console.log(`String Encryption failed. Error: ${error.message}`);
     }
   };
@@ -198,6 +203,7 @@ function AesFileEncryptorPage() {
             aesIv
           );
           // passpharse를 RSA로 암호화
+          console.log("passphrase: ", passphrase)
           const encryptedPassphrase = await encryptKeyRsa(passphrase, rsaKeyPair.publicKey);
           // // 파일로 저장
           // saveOrOpenBlob(new Blob([encrypted]), inputFile.name || "encrypted");
@@ -222,9 +228,8 @@ function AesFileEncryptorPage() {
     try {
       const encryptedFile = new File([encryptedBlob], fileName);
 
-      console.log(`encryptedPassphrase: ${encryptedPassphrase}`); // encryptedPassphrase 확인
-      console.log(`encryptedFile: ${encryptedFile}`); // encryptedFile 확인
-
+      // console.log(`encryptedPassphrase: ${encryptedPassphrase}`); // encryptedPassphrase 확인
+      // console.log(`encryptedFile: ${encryptedFile}`); // encryptedFile 확인
 
       const formData = new FormData();
       formData.append('encryptedPassphrase', encryptedPassphrase);
