@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { generateRSAKeyPair, encryptStringRsa } from "../utils/RSA_encryption";
 
-// TODO: 파일명 변경해야함.-> RsaKeyManagementPage
 const RsaStringEncryptPage = () => {
   const [inputString, setInputString] = useState("");
   const [encryptedString, setEncryptedString] = useState("");

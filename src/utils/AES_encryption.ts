@@ -72,21 +72,6 @@ export const getKeyFromPassphrase = async (passphrase: string) => {
   return keyHex
 }
 
-// // TODO: 랜덤한 salt를 생성하여 사용, 매개변수로 saltLength를 추가해도 됨(Unit8Array(saltLength))
-// export const getKeyFromPassphrase = async (passphrase: string) => {
-//   // Create a random salt
-//   const salt = window.crypto.getRandomValues(new Uint8Array(16));
-//   const saltString = Array.from(salt).map(b => b.toString(16).padStart(2, '0')).join('');
-
-//   // Add the salt to the passphrase and hash it
-//   const key = await _digestMessage(passphrase + saltString);
-
-//   const keyHex = _arrayBufferToHexString(key);
-
-//   // Return the hashed passphrase and the salt
-//   return { key: keyHex, salt: saltString };
-// }
-
 // TODO: BE에서처럼 iv를 랜덤하게 생성하고 파일의 맨 앞에 붙여서 전송
 /**
  * iv를 랜덤하게 생성, passphrase와는 연관 X
