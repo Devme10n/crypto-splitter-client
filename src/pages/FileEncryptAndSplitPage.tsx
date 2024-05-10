@@ -29,6 +29,14 @@ function AesFileEncryptorPage() {
   });
 
   /**
+   * 환경 변수 테스트
+   */
+  useEffect(() => {
+    console.log("VITE_BASE_URL:", import.meta.env.VITE_BASE_URL);
+    console.log("VITE_REACT_APP_SERVER_URL:", import.meta.env.VITE_REACT_APP_SERVER_URL);
+  }, []);
+
+  /**
    * 파일 변경 이벤트 핸들러, AES 암호화 대상 파일 선택
    * 과거에 50MB 이상의 파일을 업로드를 제한했었음
    * @param files 
@@ -497,10 +505,10 @@ function AesFileEncryptorPage() {
                   </div>
                 </>
               )}
-              {/* dell */}
+              {/* dell
               {algorithm === "RSA" && inputFile && (
                 <RsaKeyEncrypt/>
-              )}
+              )} */}
             </div>
           </>
         )}
